@@ -31,4 +31,10 @@ Aplikacja wczytuje raporty KSeF i przetwarza je w przeglądarce. Korzysta z bibl
 
 ## Dalsze zmiany
 
+Przycisk **Pobierz wszystkie dokumenty** zapisuje raporty kolejno do wskazanych folderów klientów albo, bez połączenia z folderem, do jednego archiwum ZIP. Przy każdym raporcie pojawia się stan zapisywania, zielony ptaszek po zakończonym zapisie lub czerwony krzyżyk z przyczyną błędu. Nieudana próba nie zatrzymuje pozostałych raportów. Brak wybranego folderu również jest oznaczany jako nieudana próba. W trakcie zapisu zmiana listy i ponowne uruchomienie pobierania są zablokowane.
+
+W przeglądarkach obsługujących wybór pliku wynik potwierdzany jest dopiero po zamknięciu zapisu. Przy zwykłym pobieraniu przez przeglądarkę strona nie może potwierdzić końca pobierania: zamiast zielonego ptaszka pokazuje neutralny komunikat „Przekazano przeglądarce”. ZIP-y z fakturami nadal służą do sprawdzania kompletności raportów; przycisk zapisuje wygenerowane raporty XLSX.
+
+Sprawdzenie zapisu i obsługi błędów: `node scripts/test-downloads.mjs`. Test obejmuje wyniki mieszane, błąd zapisu/zamknięcia pliku, anulowanie, jeden ZIP dla wielu raportów i ochronę przed ponownym kliknięciem.
+
 Edytuj **public/index.html**. Przed publikacją sprawdź wczytywanie plików, wynik formatowania i pobieranie raportu na przykładowych danych. Workflow kontroluje składnię, ale nie zastępuje sprawdzenia poprawności raportów.

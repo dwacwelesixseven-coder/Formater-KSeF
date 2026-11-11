@@ -6,16 +6,16 @@
 /* Layout: one narrow working column — drop zone on top, options under it, results list below. */
 :root{
   --bg:#f3f5f7; --surface:#ffffff; --ink:#16212b; --muted:#5b6876; --line:#d5dbe2;
-  --accent:#0b6b5d; --accent-ink:#ffffff; --accent-soft:#e2f1ee; --warn:#9a5b00; --err:#a3261d;
+  --accent:#0b6b5d; --accent-ink:#ffffff; --accent-soft:#e2f1ee; --warn:#9a5b00; --err:#a3261d; --success:#16803a;
   --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
   --mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
 }
 @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
   --bg:#12181d; --surface:#1a2229; --ink:#e6ebef; --muted:#97a4b0; --line:#313c46;
-  --accent:#4cc2ae; --accent-ink:#06211c; --accent-soft:#17312d; --warn:#e0a84a; --err:#f08a80; color-scheme:dark } }
+  --accent:#4cc2ae; --accent-ink:#06211c; --accent-soft:#17312d; --warn:#e0a84a; --err:#f08a80; --success:#7cdd98; color-scheme:dark } }
 :root[data-theme="dark"]{
   --bg:#12181d; --surface:#1a2229; --ink:#e6ebef; --muted:#97a4b0; --line:#313c46;
-  --accent:#4cc2ae; --accent-ink:#06211c; --accent-soft:#17312d; --warn:#e0a84a; --err:#f08a80; color-scheme:dark }
+  --accent:#4cc2ae; --accent-ink:#06211c; --accent-soft:#17312d; --warn:#e0a84a; --err:#f08a80; --success:#7cdd98; color-scheme:dark }
 body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.5}
 .wrap{max-width:760px;margin:0 auto;padding-block:28px 48px;
   padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px));
@@ -32,6 +32,11 @@ h2{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;
 .btn{font:inherit;font-weight:500;border-radius:7px;border:1px solid var(--accent);background:var(--accent);color:var(--accent-ink);
   padding:7px 14px;cursor:pointer}
 .btn.ghost{background:transparent;color:var(--accent)}
+.btn:disabled{opacity:.55;cursor:wait}
+.download-status{display:flex;gap:7px;align-items:center;margin-top:6px;font-size:13px}
+.download-status.ok{color:var(--success)}.download-status.err{color:var(--err)}
+.download-status.pending{color:var(--muted)}
+.download-status .symbol{font-size:20px;font-weight:600;line-height:1}
 .panel{display:flex;flex-direction:column;gap:10px}
 .opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:10px 24px}
 .opts label{display:flex;gap:10px;align-items:flex-start;cursor:pointer;min-width:0}
@@ -118,7 +123,7 @@ h2{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;
     <div class="head">
       <h2>Pliki</h2>
       <div class="acts">
-        <button class="btn" id="zipBtn" hidden>Pobierz wszystkie (ZIP)</button>
+        <button class="btn" id="zipBtn" hidden>Pobierz wszystkie dokumenty</button>
         <button class="btn ghost" id="clearBtn" hidden>Wyczyść listę</button>
       </div>
     </div>
@@ -470,6 +475,7 @@ async function readZip(buf){
 var $=function(id){return document.getElementById(id);};
 var OPT={optRename:'rename',optHeader:'header',optNotes:'notes',optSort:'sort',optFlags:'flags',optCombine:'combine',optNum:'numbers',optBorder:'border',optSum:'sum'};
 var sources=[],zips=[],outputs=[],downloads=null;
+var downloadBusy=false;
 if(window.claude&&window.claude.use)window.claude.use('downloads').then(function(d){downloads=d;});
 function opts(){var o={};Object.keys(OPT).forEach(function(id){o[OPT[id]]=$(id).checked;});return o;}
 function say(t){$('msg').textContent=t||'';}
@@ -544,8 +550,8 @@ async function fileOut(out){
     var f=out.infos[0];if(!f.period)throw new Error('nie udało się ustalić miesiąca faktur');
     var p=f.period.split('-'),d=await rootDir.getDirectoryHandle(out.target);
     d=await d.getDirectoryHandle(p[0],{create:true});d=await d.getDirectoryHandle(p[1],{create:true});
-    var fh=await d.getFileHandle(out.filename,{create:true}),w=await fh.createWritable();
-    await w.write(out.blob);await w.close();
+    var fh=await d.getFileHandle(out.filename,{create:true});
+    await saveHandle(fh,out.blob);
     savedKeys[sig(out)]=1;out.fileErr=null;return true;
   }catch(e){
     out.fileErr=e&&e.name==='NoModificationAllowedError'?'plik jest otwarty w innym programie – zamknij go i spróbuj ponownie':(e&&e.name==='NotAllowedError'?'brak zgody na zapis w tym folderze':(e&&e.message)||String(e));
@@ -556,6 +562,7 @@ function folderUI(li,fi,out){
   if(!rootDir||!out.blob)return;
   var f=out.infos[0],p=(f.period||'').split('-');
   if(out.target&&!out.pick){
+    if(out.downloadState){line(fi,'','Folder: '+rootDir.name+'\\'+out.target+(f.period?'\\'+p[0]+'\\'+p[1]:''));return;}
     var saved=savedKeys[sig(out)];
     line(fi,out.fileErr?'err':saved?'ok':'',out.fileErr?'Nie zapisano w folderze: '+out.fileErr:(saved?'Zapisano w: ':'Folder: ')+rootDir.name+'\\'+out.target+(f.period?'\\'+p[0]+'\\'+p[1]:''));
     return;
@@ -608,14 +615,21 @@ function render(){
       fi.appendChild(parts);
     }
     if(!out.error)folderUI(li,fi,out);
+    if(out.downloadState){
+      var status=document.createElement('div');status.className='download-status '+out.downloadState;status.setAttribute('role','status');
+      var symbol=document.createElement('span');symbol.className='symbol';symbol.setAttribute('aria-hidden','true');
+      symbol.textContent=out.downloadState==='ok'?'✓':out.downloadState==='err'?'✕':out.downloadState==='sent'?'↗':'…';
+      var statusText=document.createElement('span');statusText.textContent=out.downloadMessage;
+      status.appendChild(symbol);status.appendChild(statusText);fi.appendChild(status);
+    }
     li.appendChild(fi);
     if(out.blob){
       var acts=document.createElement('div');acts.className='acts';
       var b=document.createElement('button');b.className='btn'+(rootDir&&savedKeys[sig(out)]?' ghost':'');b.id='save-'+out.id;b.textContent='Pobierz';
-      b.addEventListener('click',function(){getOut(out);});acts.appendChild(b);
+      b.disabled=downloadBusy;b.addEventListener('click',function(){getOut(out);});acts.appendChild(b);
       if(rootDir&&out.target&&!out.pick){
         var cb=document.createElement('button');cb.className='btn ghost';cb.id='chg-'+out.id;cb.textContent='Zmień folder';
-        cb.addEventListener('click',function(){out.pick=true;render();});acts.appendChild(cb);
+        cb.disabled=downloadBusy;cb.addEventListener('click',function(){out.pick=true;render();});acts.appendChild(cb);
       }
       var mb=document.createElement('button');mb.className='btn ghost';mb.id='mail-'+out.id;mb.textContent='Kopiuj treść maila';
       mb.addEventListener('click',function(){copyMail(li,out);});acts.appendChild(mb);
@@ -629,19 +643,45 @@ function render(){
     line(fi,z.error?'err':'warn',z.error?'Nie udało się otworzyć ZIP-a: '+z.error:'ZIP: '+z.entries.length+' plików, żaden nie pasuje do wrzuconych raportów.');
     li.appendChild(fi);ul.appendChild(li);
   });
-  $('zipBtn').hidden=outputs.filter(function(i){return i.blob;}).length<2;
-  $('zipBtn').textContent=rootDir?'Pobierz wszystkie do folderów':'Pobierz wszystkie (ZIP)';$('clearBtn').hidden=!outputs.length&&!zips.length;
+  ul.querySelectorAll('select').forEach(function(sel){sel.disabled=downloadBusy;});
+  $('zipBtn').hidden=!outputs.length;$('zipBtn').disabled=downloadBusy;
+  $('zipBtn').textContent=downloadBusy?'Pobieranie…':'Pobierz wszystkie dokumenty';$('clearBtn').hidden=!outputs.length&&!zips.length;
 }
 // "Pobierz": with the client folder connected the report is written there, otherwise it is a normal download.
 function outPath(out){var p=(out.infos[0].period||'').split('-');return rootDir.name+'\\'+out.target+'\\'+p[0]+'\\'+p[1];}
 async function getOut(out){
-  if(!rootDir){save(out.filename,out.blob);return;}
-  if(!out.target||out.pick){
-    toast('Najpierw wybierz folder klienta przy tym raporcie.',true);
-    var sel=document.getElementById('pick-'+out.id);if(sel)sel.focus();return;
-  }
-  var ok=await fileOut(out);render();
-  toast(ok?'Zapisano: '+outPath(out)+'\\'+out.filename:'Nie zapisano w folderze: '+out.fileErr,!ok);
+  if(downloadBusy)return;
+  setDownloadBusy(true);
+  try{
+    await downloadOne(out);
+    toast(out.downloadState==='ok'?'Zapisano: '+out.filename:out.downloadMessage,out.downloadState==='err');
+  }finally{setDownloadBusy(false);}
+}
+function setDownloadBusy(busy){
+  downloadBusy=busy;
+  ['file','folderBtn','clearBtn'].concat(Object.keys(OPT)).forEach(function(id){$(id).disabled=busy;});
+  $('drop').setAttribute('aria-disabled',String(busy));
+  render();
+}
+function downloadStatus(out,state,message){out.downloadState=state;out.downloadMessage=message;render();}
+async function downloadOne(out){
+  downloadStatus(out,'pending','Zapisywanie…');
+  try{
+    if(!out.blob)throw new Error(out.error||'Nie udało się przygotować dokumentu.');
+    if(rootDir){
+      if(!out.target||out.pick)throw new Error('Wybierz folder klienta i spróbuj ponownie.');
+      if(!await fileOut(out))throw new Error(out.fileErr);
+      downloadStatus(out,'ok','Zapisano w: '+outPath(out));
+    }else{
+      var result=await save(out.filename,out.blob);
+      downloadStatus(out,result,result==='ok'?'Zapisano plik.':'Przekazano przeglądarce — sprawdź listę pobranych plików.');
+    }
+  }catch(e){downloadStatus(out,'err',saveError(e));}
+}
+function saveError(e){return e&&e.name==='AbortError'||e&&e.code==='declined'?'Zapis anulowany.':e&&e.code==='rate_limited'?'Poczekaj chwilę i spróbuj ponownie.':(e&&e.message)||'Nie udało się zapisać pliku.';}
+async function saveHandle(handle,blob){
+  var w=await handle.createWritable();
+  try{await w.write(blob);await w.close();}catch(e){try{await w.abort();}catch(ignore){}throw e;}
 }
 function copyMail(li,out){
   var text=mailText(out.infos);
@@ -649,16 +689,19 @@ function copyMail(li,out){
   try{navigator.clipboard.writeText(text).then(function(){say('Treść maila skopiowana do schowka.');},function(){show();say('Zaznaczyłem treść – skopiuj ją Ctrl+C.');});}
   catch(e){show();say('Zaznaczyłem treść – skopiuj ją Ctrl+C.');}
 }
-async function save(filename,blob){
+async function save(filename,blob,handle){
   say('');
+  if(handle){await saveHandle(handle,blob);return 'ok';}
   if(downloads){
-    try{await downloads.save({filename:filename,data:blob});say('Zapisano: '+filename);}
-    catch(e){say(e&&e.code==='declined'?'Zapis anulowany.':e&&e.code==='rate_limited'?'Poczekaj chwilę i spróbuj ponownie.':'Nie udało się zapisać pliku ('+((e&&e.code)||'błąd')+').');}
-    return;
+    await downloads.save({filename:filename,data:blob});return 'ok';
+  }
+  if(window.showSaveFilePicker){
+    handle=await window.showSaveFilePicker({suggestedName:filename});
+    await saveHandle(handle,blob);return 'ok';
   }
   try{var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=filename;document.body.appendChild(a);a.click();a.remove();
-    setTimeout(function(){URL.revokeObjectURL(a.href);},5000);}
-  catch(e){say('Zapisywanie plików nie jest dostępne w tym widoku.');}
+    setTimeout(function(){URL.revokeObjectURL(a.href);},60000);return 'sent';}
+  catch(e){throw new Error('Zapisywanie plików nie jest dostępne w tym widoku.');}
 }
 var seq=0,newIds={},toastTimer=null;
 function toast(text,bad){
@@ -687,6 +730,7 @@ function notify(nZips){
   if(btn)try{btn.focus({preventScroll:true});}catch(e){}
 }
 async function addFiles(list){
+  if(downloadBusy)return;
   var files=Array.prototype.slice.call(list);
   if(!files.length)return;
   say('Przetwarzam…');
@@ -713,8 +757,8 @@ async function addFiles(list){
 }
 
 var drop=$('drop'),file=$('file');
-drop.addEventListener('click',function(){file.click();});
-drop.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();file.click();}});
+drop.addEventListener('click',function(){if(!downloadBusy)file.click();});
+drop.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();if(!downloadBusy)file.click();}});
 file.addEventListener('change',function(){addFiles(file.files);file.value='';});
 ['dragenter','dragover'].forEach(function(n){drop.addEventListener(n,function(e){e.preventDefault();drop.classList.add('over');});});
 ['dragleave','drop'].forEach(function(n){drop.addEventListener(n,function(e){e.preventDefault();drop.classList.remove('over');});});
@@ -747,20 +791,40 @@ $('folderBtn').addEventListener('click',async function(){
   }catch(e){}
 })();
 $('clearBtn').addEventListener('click',function(){sources=[];zips=[];outputs=[];say('');render();});
-$('zipBtn').addEventListener('click',async function(){
-  if(rootDir){
-    var n=0,skip=0,bad=0;
-    for(var i=0;i<outputs.length;i++){var o=outputs[i];if(!o.blob)continue;
-      if(!o.target||o.pick){skip++;continue;}
-      if(await fileOut(o))n++;else bad++;}
-    render();
-    toast('Zapisano w folderach klientów: '+n+'.'+(skip?' Bez wybranego folderu: '+skip+'.':'')+(bad?' Nie udało się zapisać: '+bad+'.':''),bad>0||(n===0&&skip>0));
-    return;
-  }
-  var zip=new JSZip();outputs.forEach(function(o){if(o.blob)zip.file(o.filename,o.blob);});
-  var d=new Date(),stamp=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-  save('Raporty_KSeF_'+stamp+'.zip',await zip.generateAsync({type:'blob'}));
-});
+$('zipBtn').addEventListener('click',downloadAll);
+async function downloadAll(){
+  if(downloadBusy||!outputs.length)return;
+  var batch=outputs.slice();setDownloadBusy(true);
+  try{
+    if(rootDir){
+      for(var i=0;i<batch.length;i++){
+        say('Zapisywanie dokumentu '+(i+1)+' z '+batch.length+'…');
+        await downloadOne(batch[i]);
+        await new Promise(function(resolve){setTimeout(resolve,0);});
+      }
+    }else{
+      var ready=batch.filter(function(o){return o.blob;});
+      batch.forEach(function(o){downloadStatus(o,o.blob?'pending':'err',o.blob?'Oczekiwanie na zapis archiwum…':o.error);});
+      if(ready.length){
+        try{
+          var d=new Date(),stamp=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+          var filename='Raporty_KSeF_'+stamp+'.zip',handle=null;
+          // Ask while the button click still provides browser user activation.
+          if(!downloads&&window.showSaveFilePicker)handle=await window.showSaveFilePicker({suggestedName:filename});
+          var zip=new JSZip();ready.forEach(function(o){zip.file(o.filename,o.blob);});
+          var blob=await zip.generateAsync({type:'blob'},function(progress){say('Przygotowywanie archiwum: '+Math.round(progress.percent)+'%');});
+          var result=await save(filename,blob,handle);
+          ready.forEach(function(o){downloadStatus(o,result,result==='ok'?'Zapisano w archiwum: '+filename:'Archiwum przekazano przeglądarce — sprawdź listę pobranych plików.');});
+        }catch(e){ready.forEach(function(o){downloadStatus(o,'err',saveError(e));});}
+      }
+    }
+    var ok=batch.filter(function(o){return o.downloadState==='ok';}).length,
+        bad=batch.filter(function(o){return o.downloadState==='err';}).length,
+        sent=batch.filter(function(o){return o.downloadState==='sent';}).length;
+    var summary='Zakończono. Zapisano: '+ok+'. Nieudane próby: '+bad+'.'+(sent?' Przekazano do pobrania: '+sent+'.':'');
+    say(summary);toast(summary,bad>0);
+  }finally{setDownloadBusy(false);}
+}
 </script>
 
 </body></html>

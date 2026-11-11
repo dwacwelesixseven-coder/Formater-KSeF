@@ -6,6 +6,7 @@ on:
     paths:
       - public/**
       - scripts/validate-site.mjs
+      - scripts/test-downloads.mjs
       - scripts/cloudflare-project.mjs
       - .github/workflows/deploy-cloudflare.yml
   workflow_dispatch:
@@ -29,6 +30,9 @@ jobs:
 
       - name: Validate HTML and JavaScript
         run: node scripts/validate-site.mjs
+
+      - name: Check download results and error handling
+        run: node scripts/test-downloads.mjs
 
       - name: Check Cloudflare connection
         id: connection
