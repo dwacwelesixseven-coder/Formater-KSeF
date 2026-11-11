@@ -25,6 +25,8 @@ Nie wklejaj tokenu do pliku ani do rozmowy. W GitHub wpisuje się go w polu wart
 
 Po połączeniu każda zmiana **public/** wysłana do gałęzi **main** uruchomi sprawdzenie składni i publikację. W razie błędu sprawdzania kodu lub połączenia z Cloudflare publikacja nie jest wykonywana. README i pliki robocze nie trafiają na stronę; publikowany jest tylko katalog public. Ten sposób działa również dla projektu utworzonego wcześniej przez ręczne przesyłanie plików, bez przenoszenia istniejącego adresu.
 
+Publikacje korzystają z grupy `formater-ksef-production-v2`; nowa próba zastępuje poprzednią próbę w tej grupie. Pierwotna grupa `cloudflare-pages-production` została zmieniona po zablokowaniu uruchomienia bez utworzenia zadań i błędzie anulowania po stronie GitHuba. Projekt i adres Cloudflare pozostają te same.
+
 ## Działanie
 
 Aplikacja wczytuje raporty KSeF i przetwarza je w przeglądarce. Korzysta z bibliotek JSZip 3.10.1 i SheetJS 0.18.5 pobieranych z CDN oraz z Google Fonts. Nie umieszczaj w repozytorium rzeczywistych faktur, raportów klientów ani danych dostępowych Cloudflare.

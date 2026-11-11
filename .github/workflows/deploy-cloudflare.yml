@@ -16,8 +16,9 @@ permissions:
   contents: read
 
 concurrency:
-  group: cloudflare-pages-production
-  cancel-in-progress: false
+  # The original group contains a stuck run that GitHub cannot cancel.
+  group: formater-ksef-production-v2
+  cancel-in-progress: true
 
 jobs:
   publish:
