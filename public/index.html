@@ -1,0 +1,766 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Formater raportów KSeF</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one narrow working column — drop zone on top, options under it, results list below. */
+:root{
+  --bg:#f3f5f7; --surface:#ffffff; --ink:#16212b; --muted:#5b6876; --line:#d5dbe2;
+  --accent:#0b6b5d; --accent-ink:#ffffff; --accent-soft:#e2f1ee; --warn:#9a5b00; --err:#a3261d;
+  --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#12181d; --surface:#1a2229; --ink:#e6ebef; --muted:#97a4b0; --line:#313c46;
+  --accent:#4cc2ae; --accent-ink:#06211c; --accent-soft:#17312d; --warn:#e0a84a; --err:#f08a80; color-scheme:dark } }
+:root[data-theme="dark"]{
+  --bg:#12181d; --surface:#1a2229; --ink:#e6ebef; --muted:#97a4b0; --line:#313c46;
+  --accent:#4cc2ae; --accent-ink:#06211c; --accent-soft:#17312d; --warn:#e0a84a; --err:#f08a80; color-scheme:dark }
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.5}
+.wrap{max-width:760px;margin:0 auto;padding-block:28px 48px;
+  padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px));
+  display:flex;flex-direction:column;gap:20px}
+h1{font-size:24px;font-weight:600;margin:0;text-wrap:balance;letter-spacing:-.01em}
+.lead{margin:6px 0 0;color:var(--muted);max-width:62ch}
+h2{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0}
+.drop{background:var(--surface);border:1.5px dashed var(--line);border-radius:10px;padding:28px 20px;
+  display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;cursor:pointer}
+.drop.over{border-color:var(--accent);background:var(--accent-soft)}
+.drop:focus-visible,button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.drop strong{font-size:16px;font-weight:600}
+.drop span{color:var(--muted);font-size:13px}
+.btn{font:inherit;font-weight:500;border-radius:7px;border:1px solid var(--accent);background:var(--accent);color:var(--accent-ink);
+  padding:7px 14px;cursor:pointer}
+.btn.ghost{background:transparent;color:var(--accent)}
+.panel{display:flex;flex-direction:column;gap:10px}
+.opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:10px 24px}
+.opts label{display:flex;gap:10px;align-items:flex-start;cursor:pointer;min-width:0}
+.opts input{margin-top:4px;accent-color:var(--accent);flex:none}
+.opts small{display:block;color:var(--muted);font-size:13px}
+.always{margin:0;padding:0;list-style:none;display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:4px 20px;color:var(--muted);font-size:13.5px}
+.always li::before{content:"✓ ";color:var(--accent);font-weight:600}
+.head{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+.list{list-style:none;margin:0;padding:0;background:var(--surface);border:1px solid var(--line);border-radius:10px}
+.list li{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;padding:12px 14px;border-top:1px solid var(--line)}
+.list li:first-child{border-top:0}
+.fi{flex:1 1 260px;min-width:0}
+.fn{font-family:var(--mono);font-size:13px;overflow-wrap:anywhere}
+.meta{color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.meta.err{color:var(--err)} .meta.warn{color:var(--warn)} .meta.ok{color:var(--accent)}
+.acts{display:flex;gap:8px;flex-wrap:wrap}
+.mail{flex:1 1 100%;font:inherit;font-size:13.5px;min-height:150px;padding:10px;border:1px solid var(--line);border-radius:7px;background:var(--bg);color:var(--ink);box-sizing:border-box;width:100%}
+.pick{font:inherit;font-size:13px;max-width:100%;padding:4px 6px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink)}
+.auto{display:flex;gap:10px;align-items:center;cursor:pointer}
+.auto input{accent-color:var(--accent)}
+.toast{position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom, 0px));transform:translateX(-50%);box-sizing:border-box;width:max-content;max-width:min(560px,calc(100% - 32px));background:var(--ink);color:var(--bg);padding:12px 16px;border-radius:10px;font-size:14px;box-shadow:0 6px 24px rgba(0,0,0,.25);z-index:20;border-left:5px solid var(--accent)}
+.toast.bad{border-left-color:var(--err)}
+.list{overflow:hidden}
+.list li.new{background:var(--accent-soft)}
+.fi.wide{flex-basis:100%}
+.parts{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-block:6px 4px}
+.part{min-width:0}
+.parts.multi .part{border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:var(--surface)}
+.tag{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--accent);margin-bottom:2px}
+.meta.src{font-family:var(--mono);font-size:12px;margin-top:2px}
+.empty{color:var(--muted);padding:16px 14px}
+.note{color:var(--muted);font-size:13px;margin:0}
+#msg{min-height:1.4em;font-size:13.5px;color:var(--muted);margin:0}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Formater raportów KSeF</h1>
+    <p class="lead">Wrzuć zestawienia faktur pobrane z Symfonii (zakup i sprzedaż, dowolna liczba plików naraz), a opcjonalnie także ZIP z fakturami. Dostaniesz pliki sformatowane, nazwane i gotowe do wysłania klientowi.</p>
+  </header>
+
+  <div class="drop" id="drop" tabindex="0" role="button" aria-label="Wybierz pliki raportów">
+    <strong>Przeciągnij tutaj raporty i ZIP-y z fakturami</strong>
+    <span>albo kliknij, żeby je wybrać · .xls, .xlsx, .ods, .zip</span>
+    <input type="file" id="file" accept=".xls,.xlsx,.ods,.zip" multiple hidden>
+  </div>
+
+  <section class="panel">
+    <h2>Zawsze</h2>
+    <ul class="always">
+      <li>kolumna LP z numeracją</li>
+      <li>nagłówki wyśrodkowane i zawijane</li>
+      <li>wysokość wierszy dopasowana do tekstu</li>
+      <li>NIP, kwoty, waluta i daty wyśrodkowane</li>
+      <li>A4 poziomo, wąskie marginesy</li>
+      <li>wydruk dopasowany do szerokości strony</li>
+    </ul>
+  </section>
+
+  <section class="panel">
+    <h2>Opcje</h2>
+    <div class="opts">
+      <label><input type="checkbox" id="optRename" checked><span>Nazwa pliku z klienta i miesiąca<small>np. „Pogotowie Krawieckie - zakup - 2026-10.xlsx”.</small></span></label>
+      <label><input type="checkbox" id="optHeader" checked><span>Nagłówek z klientem nad tabelą<small>Klient i jego NIP trafiają nad tabelę, a ich kolumny znikają.</small></span></label>
+      <label><input type="checkbox" id="optNotes" checked><span>Kolumna „Uwagi” dla klienta<small>Puste miejsce na odhaczenie lub komentarz.</small></span></label>
+      <label><input type="checkbox" id="optSort" checked><span>Sortowanie po dacie wystawienia</span></label>
+      <label><input type="checkbox" id="optFlags" checked><span>Żółte pola do sprawdzenia<small>Korekty, waluta inna niż PLN, data spoza miesiąca, powtórzony numer.</small></span></label>
+      <label><input type="checkbox" id="optCombine" checked><span>Zakup i sprzedaż klienta w jednym pliku<small>Dwa arkusze i podsumowanie, gdy wrzucisz oba raporty tego samego klienta.</small></span></label>
+      <label><input type="checkbox" id="optNum" checked><span>Kwoty jako liczby (380 → 380,00)<small>Klient może je sumować w Excelu.</small></span></label>
+      <label><input type="checkbox" id="optBorder" checked><span>Obramowanie i szare nagłówki</span></label>
+      <label><input type="checkbox" id="optSum"><span>Wiersz „Razem” pod tabelą<small>Pomijany, gdy w pliku są różne waluty.</small></span></label>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Zapis do folderów klientów</h2>
+    <div class="head">
+      <p class="note" id="folderState" style="flex:1 1 280px">Wskaż raz folder FAKTURY KSEF. Po kliknięciu „Pobierz” raport trafi do: klient \ rok \ numer miesiąca. Brakujące foldery roku i miesiąca utworzą się same.</p>
+      <button class="btn" id="folderBtn">Wybierz folder FAKTURY KSEF</button>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="head">
+      <h2>Pliki</h2>
+      <div class="acts">
+        <button class="btn" id="zipBtn" hidden>Pobierz wszystkie (ZIP)</button>
+        <button class="btn ghost" id="clearBtn" hidden>Wyczyść listę</button>
+      </div>
+    </div>
+    <ul class="list" id="list"><li class="empty">Tu pojawią się sformatowane pliki. Każdy zapiszesz osobno albo wszystkie razem w jednym ZIP-ie.</li></ul>
+    <p id="msg" role="status"></p>
+    <p class="note">Pliki są przetwarzane w Twojej przeglądarce i nigdzie nie są wysyłane. Wynik ma format .xlsx (otwiera się w Excelu i LibreOffice).</p>
+  </section>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+/*CORE-START*/
+// ---- Pure formatting core (no DOM, no libraries) ----
+// table = { name, kind?: 'zakup'|'sprzedaż', rows: [[{k:'s'|'n'|'d', v}|null, ...], ...] }  (row 0 = headers; 'd' = Excel date serial)
+var COLS = [
+  [/^lp\.?$/,               {w:5,  al:'c'}],
+  [/^pobrane/,              {w:10, al:'l'}],
+  [/^numer własny/,         {w:22, al:'l', wrap:1}],
+  [/^typ dokumentu/,        {w:11, al:'c'}],
+  [/^(sprzedawca|nabywca|kontrahent|odbiorca|dostawca)/, {w:36, al:'l', wrap:1}],
+  [/nip/,                   {w:14, al:'c', id:1}],
+  [/(kwota|wartość|netto|brutto|^vat$)/, {w:13, al:'c', amount:1}],
+  [/^waluta/,               {w:8,  al:'c'}],
+  [/^(data|termin)/,        {w:12, al:'c', date:1}],
+  [/^numer dokumentu w ksef|^numer ksef/, {w:39, al:'l'}],
+  [/^tryb/,                 {w:9,  al:'c'}],
+  [/^uwagi/,                {w:26, al:'l', wrap:1}]
+];
+var MONTHS=['styczeń','luty','marzec','kwiecień','maj','czerwiec','lipiec','sierpień','wrzesień','październik','listopad','grudzień'];
+function esc(s){return String(s).replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g,'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function colName(i){var s='';i++;while(i>0){var m=(i-1)%26;s=String.fromCharCode(65+m)+s;i=(i-m-1)/26;}return s;}
+// Row height: estimate how many lines a wrapped text needs in a column of given width (greedy word wrap).
+function textLines(text,width,scale){
+  var avail=Math.max(2,width-1.5),lines=1,cur=0;
+  String(text).split(/\s+/).forEach(function(word){
+    var w=0;for(var i=0;i<word.length;i++){var ch=word[i];
+      w+=/[A-ZĄĆĘŁŃÓŚŹŻ@%&]/.test(ch)?(/[MW]/.test(ch)?1.6:1.3):/[iljtfI.,:;'!|()\/-]/.test(ch)?0.55:/[mw]/.test(ch)?1.5:1.02;}
+    w*=scale;
+    if(cur>0&&cur+0.55*scale+w>avail){lines++;cur=0;}
+    else if(cur>0)cur+=0.55*scale;
+    if(w>avail){lines+=Math.ceil(w/avail)-1;cur=w%avail;}else cur+=w;
+  });
+  return lines;
+}
+function parseAmount(v){
+  if(typeof v==='number')return v;
+  var s=String(v).replace(/[\s ]/g,'');
+  if(!/^-?\d+([.,]\d+)?$/.test(s))return null;
+  return parseFloat(s.replace(',','.'));
+}
+function parseDateStr(v){
+  var s=String(v).trim(),m,y,mo,d;
+  if((m=/^(\d{4})-(\d{2})-(\d{2})/.exec(s))){y=+m[1];mo=+m[2];d=+m[3];}
+  else if((m=/^(\d{1,2})[-.\/](\d{1,2})[-.\/](\d{4})/.exec(s))){y=+m[3];mo=+m[2];d=+m[1];}
+  else return null;
+  if(mo<1||mo>12||d<1||d>31)return null;
+  return Math.round(Date.UTC(y,mo-1,d)/86400000)+25569;
+}
+function colSpec(header,cells){
+  var h=String(header==null?'':header).trim().toLowerCase();
+  for(var i=0;i<COLS.length;i++)if(COLS[i][0].test(h)){var o={};for(var k in COLS[i][1])o[k]=COLS[i][1][k];return o;}
+  var max=h.length;cells.forEach(function(c){if(c&&c.v!=null)max=Math.max(max,String(c.v).length);});
+  return {w:Math.max(8,Math.min(32,max+2)),al:'l',wrap:1};
+}
+function modeOf(arr){var m={},best=null,bc=0;arr.forEach(function(v){if(v==null||v==='')return;var k=String(v).trim();m[k]=(m[k]||0)+1;if(m[k]>bc){bc=m[k];best=k;}});return best;}
+function constOf(arr){var s=null;for(var i=0;i<arr.length;i++){if(arr[i]==null||arr[i]==='')continue;var v=String(arr[i]).trim();if(s==null)s=v;else if(s!==v)return null;}return s;}
+function ymOf(serial){var d=new Date(Math.round((Math.floor(serial)-25569)*86400000));return d.getUTCFullYear()+'-'+String(d.getUTCMonth()+1).padStart(2,'0');}
+function periodLabel(ym){if(!ym)return '';var p=ym.split('-');return MONTHS[+p[1]-1]+' '+p[0];}
+function niceName(s){
+  s=String(s).replace(/\s+/g,' ').trim();
+  if(s===s.toUpperCase())s=s.toLowerCase().replace(/(^|[\s\-"(])([a-ząćęłńóśźż])/g,function(m,a,b){return a+b.toUpperCase();});
+  return s;
+}
+function prepare(table,opts){
+  var rows=table.rows.filter(function(r){return r.some(function(c){return c&&c.v!==''&&c.v!=null;});});
+  if(!rows.length)throw new Error('Plik jest pusty.');
+  var n=0;rows.forEach(function(r){n=Math.max(n,r.length);});
+  while(n>0&&rows.every(function(r){var c=r[n-1];return !c||c.v===''||c.v==null;}))n--;
+  var head=rows[0].slice(0,n).map(function(c){return c&&c.v!=null?String(c.v).trim():'';});
+  var body=rows.slice(1).map(function(r){var o=[];for(var i=0;i<n;i++)o.push(r[i]&&r[i].v!==''&&r[i].v!=null?{k:r[i].k,v:r[i].v}:null);return o;});
+  if(/^lp\.?$/i.test(head[0])){head.shift();body.forEach(function(r){r.shift();});}
+  var specs=head.map(function(h,i){return colSpec(h,body.map(function(r){return r[i];}));});
+  var bad=0;
+  body.forEach(function(r){r.forEach(function(c,i){
+    if(!c)return;var sp=specs[i];
+    if(sp.amount){
+      if(opts.numbers){var a=parseAmount(c.v);if(a==null){bad++;r[i]={k:'s',v:String(c.v)};}else r[i]={k:'a',v:a};}
+      else if(c.k==='n')r[i]={k:'s',v:String(c.v).replace('.',',')};
+    }else if(sp.date){
+      if(c.k==='d'||(c.k==='n'&&c.v>20000&&c.v<80000))r[i]={k:'d',v:c.v};
+      else if(c.k==='s'){var d=parseDateStr(c.v);if(d!=null)r[i]={k:'d',v:d};}
+    }
+  });});
+  var ix=function(re){return head.findIndex(function(h){return re.test(h.toLowerCase());});};
+  var iNab=ix(/^nabywca/),iNipNab=ix(/^nip nabywcy/),iSp=ix(/^sprzedawca/),iNipSp=ix(/^nip sprzedawcy/),
+      iDate=ix(/^data wystawienia/),iNr=ix(/^numer własny|^numer faktury/),iTyp=ix(/^typ/),iWal=ix(/^waluta/),iKsef=ix(/^numer.*ksef/);
+  var col=function(i){return i<0?[]:body.map(function(r){return r[i]?r[i].v:null;});};
+  // which side is the client: the one whose NIP repeats in every row
+  var kind=table.kind||null,cN=constOf(col(iNipNab)),cS=constOf(col(iNipSp));
+  if(!kind){if(cN!=null&&cS==null)kind='zakup';else if(cS!=null&&cN==null)kind='sprzedaż';}
+  var ci=-1,cni=-1,cliNip=null,cpNip=-1;
+  if(kind==='zakup'){ci=iNab;cni=iNipNab;cliNip=cN;cpNip=iNipSp;}
+  else if(kind==='sprzedaż'){ci=iSp;cni=iNipSp;cliNip=cS;cpNip=iNipNab;}
+  var cliName=ci>=0?modeOf(col(ci)):null;
+  var period=iDate>=0?modeOf(body.map(function(r){return r[iDate]&&r[iDate].k==='d'?ymOf(r[iDate].v):null;})):null;
+  if(opts.sort&&iDate>=0){
+    var dv=function(r){return r[iDate]&&r[iDate].k==='d'?Math.floor(r[iDate].v):1e9;},nv=function(r){return iNr>=0&&r[iNr]?String(r[iNr].v):'';};
+    body=body.map(function(r,i){return [r,i];}).sort(function(a,b){return dv(a[0])-dv(b[0])||nv(a[0]).localeCompare(nv(b[0]),'pl')||a[1]-b[1];}).map(function(x){return x[0];});
+  }
+  var flags={kor:0,wal:0,date:0,dup:0};
+  if(opts.flags){
+    var seen={};
+    body.forEach(function(r){if(iNr<0||!r[iNr])return;var k=String(r[iNr].v).trim()+'|'+(cpNip>=0&&r[cpNip]?r[cpNip].v:'');(seen[k]=seen[k]||[]).push(r);});
+    Object.keys(seen).forEach(function(k){if(seen[k].length>1)seen[k].forEach(function(r){r[iNr].f=1;flags.dup++;});});
+    body.forEach(function(r){
+      if(iTyp>=0&&r[iTyp]&&/kor/i.test(String(r[iTyp].v))){r[iTyp].f=1;flags.kor++;}
+      if(iWal>=0&&r[iWal]&&String(r[iWal].v).trim().toUpperCase()!=='PLN'){r[iWal].f=1;flags.wal++;}
+      if(period&&iDate>=0&&r[iDate]&&r[iDate].k==='d'&&ymOf(r[iDate].v)!==period){r[iDate].f=1;flags.date++;}
+    });
+  }
+  var invoices=body.map(function(r){return {nr:iNr>=0&&r[iNr]?String(r[iNr].v).trim():'',ksef:iKsef>=0&&r[iKsef]?String(r[iKsef].v).trim():''};});
+  var curList=Object.keys(col(iWal).reduce(function(m,v){if(v!=null)m[String(v).trim()]=1;return m;},{}));
+  // client columns move to the title block
+  var titled=!!opts.header,dropped=false;
+  if(titled&&cliNip!=null&&ci>=0&&cni>=0){
+    var keep=head.map(function(_,i){return i;}).filter(function(i){return i!==ci&&i!==cni;});
+    head=keep.map(function(i){return head[i];});specs=keep.map(function(i){return specs[i];});
+    body=body.map(function(r){return keep.map(function(i){return r[i];});});dropped=true;
+  }
+  head.unshift('LP');specs.unshift(colSpec('LP',[]));body.forEach(function(r,i){r.unshift({k:'n',v:i+1});});
+  if(opts.notes){head.push('Uwagi');specs.push(colSpec('Uwagi',[]));body.forEach(function(r){r.push(null);});}
+  var amountIdx=[];specs.forEach(function(s,i){if(s.amount)amountIdx.push(i);});
+  var totals={};amountIdx.forEach(function(i){var t=0;body.forEach(function(r){if(r[i]&&r[i].k==='a')t+=r[i].v;});totals[i]=Math.round(t*100)/100;});
+  var named=function(re){var i=amountIdx.find(function(x){return re.test(head[x].toLowerCase());});return i==null?null:totals[i];};
+  var sumRow=!!(opts.sum&&opts.numbers&&amountIdx.length&&amountIdx[0]>0&&curList.length<=1&&body.length);
+  var kindLabel=kind==='zakup'?'Faktury zakupowe':kind==='sprzedaż'?'Faktury sprzedażowe':'Faktury';
+  return {head:head,body:body,specs:specs,n:head.length,amountIdx:amountIdx,totals:totals,sumRow:sumRow,
+    title:titled?kindLabel+(period?' – '+periodLabel(period):''):null,
+    sub:titled&&cliName?niceName(cliName)+(cliNip?' · NIP '+cliNip:''):null,
+    info:{count:body.length,kind:kind,client:cliName?niceName(cliName):null,nip:cliNip,period:period,currencies:curList,badAmounts:bad,
+      sumSkipped:!!(opts.sum&&!sumRow),flags:flags,invoices:invoices,dropped:dropped,
+      net:named(/netto/),vat:named(/vat/),gross:named(/brutto/)}};
+}
+function Styles(){this.xfs=['<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'];this.map={};}
+Styles.prototype.get=function(num,font,fill,al,wrap,border){
+  var k=[num,font,fill,al,wrap?1:0,border?1:0].join('|');
+  if(this.map[k]==null){this.map[k]=this.xfs.length;
+    this.xfs.push('<xf numFmtId="'+num+'" fontId="'+font+'" fillId="'+fill+'" borderId="'+(border?1:0)+'" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="'+al+'" vertical="center"'+(wrap?' wrapText="1"':'')+'/></xf>');}
+  return this.map[k];
+};
+Styles.prototype.xml=function(){
+  var f=function(b,i,sz,name,color){return '<font>'+(b?'<b/>':'')+(i?'<i/>':'')+'<sz val="'+sz+'"/>'+(color?'<color rgb="'+color+'"/>':'')+'<name val="'+name+'"/><family val="2"/></font>';};
+  return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'+
+    '<numFmts count="2"><numFmt numFmtId="164" formatCode="#,##0.00"/><numFmt numFmtId="165" formatCode="dd\\-mm\\-yyyy"/></numFmts>'+
+    '<fonts count="5">'+f(0,0,10,'Arial')+f(1,0,11,'Calibri')+f(1,0,10,'Arial')+f(1,0,14,'Calibri')+f(0,1,9,'Arial','FF555555')+'</fonts>'+
+    '<fills count="4"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFEDEDED"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFFFE98A"/><bgColor indexed="64"/></patternFill></fill></fills>'+
+    '<borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"><color auto="1"/></left><right style="thin"><color auto="1"/></right><top style="thin"><color auto="1"/></top><bottom style="thin"><color auto="1"/></bottom><diagonal/></border></borders>'+
+    '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'+
+    '<cellXfs count="'+this.xfs.length+'">'+this.xfs.join('')+'</cellXfs>'+
+    '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>';
+};
+function cStr(ref,s,v){return '<c r="'+ref+'" s="'+s+'" t="inlineStr"><is><t xml:space="preserve">'+esc(v)+'</t></is></c>';}
+function cNum(ref,s,v){return '<c r="'+ref+'" s="'+s+'"><v>'+v+'</v></c>';}
+function wsXml(cols,sd,lastRef,freezeRow,onePage){
+  return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'+
+    '<sheetPr><pageSetUpPr fitToPage="1"/></sheetPr><dimension ref="A1:'+lastRef+'"/>'+
+    '<sheetViews><sheetView workbookViewId="0">'+(freezeRow?'<pane ySplit="'+freezeRow+'" topLeftCell="A'+(freezeRow+1)+'" activePane="bottomLeft" state="frozen"/>':'')+'</sheetView></sheetViews>'+
+    '<sheetFormatPr defaultRowHeight="12.75"/>'+cols+'<sheetData>'+sd+'</sheetData>'+
+    '<printOptions horizontalCentered="1"/>'+
+    '<pageMargins left="0.25" right="0.25" top="0.4" bottom="0.45" header="0.2" footer="0.2"/>'+
+    '<pageSetup paperSize="9" orientation="landscape" fitToWidth="1" fitToHeight="'+(onePage?1:0)+'"/>'+
+    '<headerFooter><oddFooter>&amp;C&amp;8Strona &amp;P z &amp;N</oddFooter></headerFooter></worksheet>';
+}
+function sheetXml(p,opts,S){
+  var B=opts.border?1:0,sd='',rn=0;
+  if(p.title){
+    sd+='<row r="'+(++rn)+'" ht="21" customHeight="1">'+cStr('A'+rn,S.get(0,3,0,'left',0,0),p.title)+'</row>';
+    if(p.sub)sd+='<row r="'+(++rn)+'" ht="16.5" customHeight="1">'+cStr('A'+rn,S.get(0,0,0,'left',0,0),p.sub)+'</row>';
+    sd+='<row r="'+(++rn)+'" ht="7.5" customHeight="1"/>';
+  }
+  var h0=++rn,hs=S.get(0,1,B?2:0,'center',1,B),hl=1;
+  p.head.forEach(function(h,i){hl=Math.max(hl,textLines(h,p.specs[i].w,1.2));});
+  sd+='<row r="'+h0+'" ht="'+(hl*15+8)+'" customHeight="1">';
+  p.head.forEach(function(h,i){sd+=cStr(colName(i)+h0,hs,h);});
+  sd+='</row>';
+  p.body.forEach(function(r){
+    var nl=1;rn++;
+    r.forEach(function(c,i){if(c&&p.specs[i].wrap&&(c.k==='s'||c.k==='n'))nl=Math.max(nl,textLines(c.v,p.specs[i].w,1));});
+    sd+='<row r="'+rn+'" ht="'+(nl*12.75+6)+'" customHeight="1">';
+    r.forEach(function(c,i){
+      var sp=p.specs[i],ref=colName(i)+rn,al=sp.al==='c'?'center':'left',fill=c&&c.f?3:0;
+      if(!c){sd+='<c r="'+ref+'" s="'+S.get(0,0,0,al,sp.wrap,B)+'"/>';return;}
+      if(c.k==='a')sd+=cNum(ref,S.get(164,0,fill,'center',0,B),c.v);
+      else if(c.k==='d')sd+=cNum(ref,S.get(165,0,fill,'center',0,B),c.v);
+      else if(c.k==='n'&&isFinite(c.v))sd+=cNum(ref,S.get(Number.isInteger(c.v)?1:0,0,fill,(sp.al==='c'||i===0)?'center':'left',0,B),c.v);
+      else sd+=cStr(ref,S.get(0,0,fill,al,sp.wrap,B),c.v);
+    });
+    sd+='</row>';
+  });
+  var last=rn;
+  if(p.sumRow){
+    rn++;sd+='<row r="'+rn+'" ht="18.75" customHeight="1">';
+    sd+=cStr(colName(p.amountIdx[0]-1)+rn,S.get(0,2,0,'right',0,B),'Razem');
+    p.amountIdx.forEach(function(i){var c=colName(i);sd+='<c r="'+c+rn+'" s="'+S.get(164,2,0,'center',0,B)+'"><f>SUM('+c+(h0+1)+':'+c+last+')</f><v>'+p.totals[i]+'</v></c>';});
+    sd+='</row>';
+  }
+  var fl=p.info.flags,lg=[];
+  if(fl.kor)lg.push('korekty ('+fl.kor+')');if(fl.wal)lg.push('waluta inna niż PLN ('+fl.wal+')');
+  if(fl.date)lg.push('data spoza miesiąca ('+fl.date+')');if(fl.dup)lg.push('powtórzony numer ('+fl.dup+')');
+  if(lg.length){rn+=2;sd+='<row r="'+rn+'" ht="15" customHeight="1">'+cStr('A'+rn,S.get(0,4,0,'left',0,0),'Żółte pola do sprawdzenia: '+lg.join(', ')+'.')+'</row>';}
+  var cols='<cols>';p.specs.forEach(function(s,i){cols+='<col min="'+(i+1)+'" max="'+(i+1)+'" width="'+s.w+'" customWidth="1"/>';});cols+='</cols>';
+  return {xml:wsXml(cols,sd,colName(p.n-1)+rn,h0,p.body.length<=30),titleRow:h0};
+}
+function summaryXml(ps,opts,S){
+  var B=opts.border?1:0,i0=ps[0].info,sd='',rn=0;
+  sd+='<row r="'+(++rn)+'" ht="21" customHeight="1">'+cStr('A'+rn,S.get(0,3,0,'left',0,0),'Podsumowanie'+(i0.period?' – '+periodLabel(i0.period):''))+'</row>';
+  if(ps[0].sub)sd+='<row r="'+(++rn)+'" ht="16.5" customHeight="1">'+cStr('A'+rn,S.get(0,0,0,'left',0,0),ps[0].sub)+'</row>';
+  sd+='<row r="'+(++rn)+'" ht="7.5" customHeight="1"/>';
+  var hs=S.get(0,1,B?2:0,'center',1,B);rn++;
+  sd+='<row r="'+rn+'" ht="23" customHeight="1">';
+  ['','Liczba faktur','Netto','VAT','Brutto'].forEach(function(h,i){sd+=cStr(colName(i)+rn,hs,h);});sd+='</row>';
+  var mixed=false;
+  ps.forEach(function(p){
+    var f=p.info;rn++;if(f.currencies.length>1)mixed=true;
+    sd+='<row r="'+rn+'" ht="18.75" customHeight="1">'+cStr('A'+rn,S.get(0,2,0,'left',0,B),f.kind==='zakup'?'Zakup':'Sprzedaż')+cNum('B'+rn,S.get(1,0,0,'center',0,B),f.count);
+    [f.net,f.vat,f.gross].forEach(function(v,i){var ref=colName(i+2)+rn;sd+=v==null?'<c r="'+ref+'" s="'+S.get(0,0,0,'center',0,B)+'"/>':cNum(ref,S.get(164,0,0,'center',0,B),v);});
+    sd+='</row>';
+  });
+  if(mixed){rn+=2;sd+='<row r="'+rn+'" ht="15" customHeight="1">'+cStr('A'+rn,S.get(0,4,0,'left',0,0),'Uwaga: faktury są w różnych walutach, sumy łączą kwoty bez przeliczenia.')+'</row>';}
+  var cols='<cols><col min="1" max="1" width="18" customWidth="1"/><col min="2" max="5" width="16" customWidth="1"/></cols>';
+  return {xml:wsXml(cols,sd,'E'+rn,0,true),titleRow:null};
+}
+function fileBase(infos,opts,fallback){
+  var f=infos[0];
+  if(!opts.rename||!f.client||!f.period)return fallback;
+  var kind=infos.length>1?'zakup i sprzedaż':(f.kind||'faktury');
+  return (f.client.replace(/[\\\/:*?"<>|]/g,' ').replace(/\s+/g,' ').trim().slice(0,70)+' - '+kind+' - '+f.period);
+}
+// tables: one report, or [zakup, sprzedaż] of the same client -> one workbook
+function formatReports(tables,opts){
+  var S=new Styles(),ps=tables.map(function(t){return prepare(t,opts);}),sheets=[];
+  ps.forEach(function(p,i){
+    var s=sheetXml(p,opts,S),nm=ps.length>1?(p.info.kind==='zakup'?'Zakup':'Sprzedaż'):(tables[i].name||'Faktury');
+    sheets.push({name:nm.replace(/[\[\]\*\?\/\\:]/g,' ').slice(0,31)||'Faktury',xml:s.xml,titleRow:s.titleRow});
+  });
+  if(ps.length>1){var sm=summaryXml(ps,opts,S);sheets.push({name:'Podsumowanie',xml:sm.xml,titleRow:null});}
+  var ct='',rel='',sh='',dn='',parts={};
+  sheets.forEach(function(s,i){
+    var k=i+1;parts['xl/worksheets/sheet'+k+'.xml']=s.xml;
+    ct+='<Override PartName="/xl/worksheets/sheet'+k+'.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>';
+    rel+='<Relationship Id="rId'+k+'" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet'+k+'.xml"/>';
+    sh+='<sheet name="'+esc(s.name)+'" sheetId="'+k+'" r:id="rId'+k+'"/>';
+    if(s.titleRow)dn+='<definedName name="_xlnm.Print_Titles" localSheetId="'+i+'">\''+esc(s.name.replace(/'/g,"''"))+'\'!$'+s.titleRow+':$'+s.titleRow+'</definedName>';
+  });
+  parts['[Content_Types].xml']='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'+ct+'<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>';
+  parts['_rels/.rels']='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>';
+  parts['xl/workbook.xml']='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>'+sh+'</sheets>'+(dn?'<definedNames>'+dn+'</definedNames>':'')+'</workbook>';
+  parts['xl/_rels/workbook.xml.rels']='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'+rel+'<Relationship Id="rId'+(sheets.length+1)+'" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>';
+  parts['xl/styles.xml']=S.xml();
+  return {parts:parts,infos:ps.map(function(p){return p.info;})};
+}
+// Which invoices from the report have a file in the ZIP. entries = [{name, text?}] (text = content of small XML files)
+function matchZip(invoices,entries){
+  var norm=function(s){return String(s).toUpperCase().replace(/[^A-Z0-9]/g,'');};
+  var es=entries.map(function(e){return {n:norm(e.name.replace(/^.*\//,'')),t:e.text||'',used:false};});
+  var missing=[],matched=0;
+  invoices.forEach(function(inv){
+    var k=norm(inv.ksef),nr=norm(inv.nr),hit=false;
+    es.forEach(function(e){
+      if((k&&e.n.indexOf(k)>=0)||(nr.length>=5&&e.n.indexOf(nr)>=0)||(e.t&&((inv.ksef&&e.t.indexOf(inv.ksef)>=0)||(inv.nr&&e.t.indexOf('>'+inv.nr+'<')>=0)))){e.used=true;hit=true;}
+    });
+    if(hit)matched++;else missing.push(inv.nr||inv.ksef||'?');
+  });
+  return {matched:matched,missing:missing,extra:es.filter(function(e){return !e.used;}).length,files:es.length};
+}
+function mailText(infos){
+  var f=infos[0],per=f.period?' za '+periodLabel(f.period):'';
+  var cnt=function(n){return n+' '+(n===1?'faktura':(n%10>=2&&n%10<=4&&(n%100<12||n%100>14)?'faktury':'faktur'));};
+  var money=function(i){return i.gross!=null&&i.currencies.length<=1?', brutto '+i.gross.toLocaleString('pl-PL',{minimumFractionDigits:2,maximumFractionDigits:2})+' '+(i.currencies[0]||''):'';};
+  var what;
+  if(infos.length>1)what='zestawienie faktur zakupowych i sprzedażowych'+per+' (zakup: '+cnt(infos[0].count)+money(infos[0]).trimEnd()+'; sprzedaż: '+cnt(infos[1].count)+money(infos[1]).trimEnd()+')';
+  else what='zestawienie faktur'+(f.kind==='zakup'?' zakupowych':f.kind==='sprzedaż'?' sprzedażowych':'')+per+' ('+cnt(f.count)+money(f).trimEnd()+')';
+  return 'Dzień dobry,\n\nw załączniku przesyłam '+what+' pobrane z KSeF.\n\nProszę o sprawdzenie, czy lista jest kompletna i czy wszystkie faktury dotyczą Państwa działalności. Uwagi można wpisać bezpośrednio w pliku.\n\nPozdrawiam';
+}
+// Client folder for a report: every word of the folder name (without its number prefix) must appear in the client's name.
+var STOP={SP:1,Z:1,O:1,OO:1,ZO:1,ZOO:1,'SPÓŁKA':1,'OGRANICZONĄ':1,'ODPOWIEDZIALNOŚCIĄ':1,SA:1,SC:1,S:1,C:1,I:1};
+function nameTokens(s){return String(s).toUpperCase().replace(/^\s*\d+[_\s.-]+/,'').replace(/[^A-Z0-9ĄĆĘŁŃÓŚŹŻ]+/g,' ').trim().split(' ').filter(function(t){return t&&!STOP[t];});}
+function near(a,b){
+  if(a===b)return true;
+  if(Math.min(a.length,b.length)<5||Math.abs(a.length-b.length)>1)return false;
+  var i=0,j=0,d=0;
+  while(i<a.length&&j<b.length){
+    if(a[i]===b[j]){i++;j++;continue;}
+    if(++d>1)return false;
+    if(a.length>b.length)i++;else if(b.length>a.length)j++;else{i++;j++;}
+  }
+  return d+(a.length-i)+(b.length-j)<=1;
+}
+function matchFolder(client,folders){
+  var C=nameTokens(client),best=[],bs=0;
+  folders.forEach(function(f){
+    var F=nameTokens(f),exact=0;if(!F.length)return;
+    var ok=F.every(function(t){if(C.indexOf(t)>=0){exact++;return true;}return C.some(function(c){return near(c,t);});});
+    if(!ok)return;
+    var sc=F.length*10+exact;
+    if(sc>bs){bs=sc;best=[f];}else if(sc===bs)best.push(f);
+  });
+  return best;
+}
+/*CORE-END*/
+
+// ---- Reading source files (SheetJS / JSZip) ----
+function readTable(buf){
+  var wb=XLSX.read(new Uint8Array(buf),{type:'array',cellDates:false,cellNF:true});
+  var name=wb.SheetNames[0],ws=wb.Sheets[name];
+  if(!ws||!ws['!ref'])throw new Error('Plik jest pusty.');
+  var rg=XLSX.utils.decode_range(ws['!ref']),rows=[];
+  for(var r=rg.s.r;r<=rg.e.r;r++){
+    var row=[];
+    for(var c=rg.s.c;c<=rg.e.c;c++){
+      var cell=ws[XLSX.utils.encode_cell({r:r,c:c})];
+      if(!cell||cell.v==null||cell.t==='z'){row.push(null);continue;}
+      if(cell.t==='d'&&cell.v instanceof Date){var d=cell.v;
+        row.push({k:'d',v:Date.UTC(d.getFullYear(),d.getMonth(),d.getDate(),d.getHours(),d.getMinutes(),d.getSeconds())/86400000+25569});}
+      else if(cell.t==='n'){var isD=false;try{isD=!!(cell.z&&XLSX.SSF.is_date(cell.z));}catch(e){}
+        row.push({k:isD?'d':'n',v:cell.v});}
+      else if(cell.t==='b')row.push({k:'s',v:cell.v?'TAK':'NIE'});
+      else row.push({k:'s',v:String(cell.v)});
+    }
+    rows.push(row);
+  }
+  return {name:name,rows:rows};
+}
+async function readZip(buf){
+  var z=await JSZip.loadAsync(buf),entries=[],names=Object.keys(z.files);
+  for(var i=0;i<names.length;i++){
+    var f=z.files[names[i]];if(f.dir)continue;
+    var e={name:f.name};
+    if(/\.xml$/i.test(f.name)){try{var t=await f.async('string');if(t.length<3e6)e.text=t;}catch(err){}}
+    entries.push(e);
+  }
+  return entries;
+}
+
+// ---- Page ----
+var $=function(id){return document.getElementById(id);};
+var OPT={optRename:'rename',optHeader:'header',optNotes:'notes',optSort:'sort',optFlags:'flags',optCombine:'combine',optNum:'numbers',optBorder:'border',optSum:'sum'};
+var sources=[],zips=[],outputs=[],downloads=null;
+if(window.claude&&window.claude.use)window.claude.use('downloads').then(function(d){downloads=d;});
+function opts(){var o={};Object.keys(OPT).forEach(function(id){o[OPT[id]]=$(id).checked;});return o;}
+function say(t){$('msg').textContent=t||'';}
+function plural(n){return n+' '+(n===1?'faktura':(n%10>=2&&n%10<=4&&(n%100<12||n%100>14)?'faktury':'faktur'));}
+function fmtMoney(v){return v.toLocaleString('pl-PL',{minimumFractionDigits:2,maximumFractionDigits:2});}
+
+async function rebuild(){
+  var o=opts();outputs=[];
+  // peek at each report to know its client, kind and month
+  sources.forEach(function(s){s.peek=null;if(!s.table)return;try{s.peek=prepare(s.table,o).info;s.error=null;}catch(e){s.error=e.message||String(e);}});
+  var groups=[],used={};
+  if(o.combine){
+    var by={};sources.forEach(function(s){var p=s.peek;if(p&&p.nip&&p.period&&p.kind){var k=p.nip+'|'+p.period;(by[k]=by[k]||[]).push(s);}});
+    Object.keys(by).forEach(function(k){
+      var z=by[k].filter(function(s){return s.peek.kind==='zakup';}),sp=by[k].filter(function(s){return s.peek.kind==='sprzedaż';});
+      if(z.length===1&&sp.length===1){groups.push([z[0],sp[0]]);used[z[0].id]=used[sp[0].id]=1;}
+    });
+  }
+  sources.forEach(function(s){if(!used[s.id])groups.push([s]);});
+  groups.sort(function(a,b){return a[0].id-b[0].id;});
+  var names={};
+  for(var g=0;g<groups.length;g++){
+    var grp=groups[g],out={id:grp[0].id,ids:grp.map(function(s){return s.id;}),srcNames:grp.map(function(s){return s.name;}),blob:null,infos:null,error:grp[0].error,zip:[]};
+    if(!out.error){
+      try{
+        var res=formatReports(grp.map(function(s){return s.table;}),o);
+        var zip=new JSZip();Object.keys(res.parts).forEach(function(k){zip.file(k,res.parts[k]);});
+        out.blob=await zip.generateAsync({type:'blob',compression:'DEFLATE'});out.infos=res.infos;
+        var base=fileBase(res.infos,o,grp[0].name.replace(/\.(xlsx?|ods)$/i,'')),k2=base.toLowerCase();
+        names[k2]=(names[k2]||0)+1;out.filename=base+(names[k2]>1?' ('+names[k2]+')':'')+'.xlsx';
+      }catch(e){out.error=e.message||String(e);}
+    }else out.filename=grp[0].name;
+    outputs.push(out);
+  }
+  // pair each ZIP with the report it covers best
+  zips.forEach(function(z){
+    var best=null;
+    outputs.forEach(function(out){(out.infos||[]).forEach(function(f){var m=matchZip(f.invoices,z.entries);if(m.matched>0&&(!best||m.matched>best.m.matched))best={out:out,m:m,kind:f.kind};});});
+    z.paired=!!best;if(best)best.out.zip.push({name:z.name,m:best.m,kind:best.kind});
+  });
+  assignTargets();render();
+}
+
+// ---- Saving straight into client folders (File System Access API) ----
+var rootDir=null,pendingDir=null,folderNames=[],savedKeys={},fmap={};
+try{fmap=JSON.parse(localStorage.getItem('fk-map')||'{}')||{};}catch(e){}
+function idb(mode,fn){return new Promise(function(res,rej){try{
+  var rq=indexedDB.open('fk',1);rq.onupgradeneeded=function(){rq.result.createObjectStore('kv');};rq.onerror=function(){rej(rq.error);};
+  rq.onsuccess=function(){var tx=rq.result.transaction('kv',mode),r=fn(tx.objectStore('kv'));tx.oncomplete=function(){res(r&&r.result);};tx.onerror=function(){rej(tx.error);};};
+}catch(e){rej(e);}});}
+async function useRoot(h){
+  var names=[];for await(var e of h.values()){if(e.kind==='directory')names.push(e.name);}
+  names.sort(function(a,b){return a.localeCompare(b,'pl',{numeric:true});});
+  rootDir=h;pendingDir=null;folderNames=names;
+  $('folderState').textContent='Folder: '+h.name+' · folderów klientów: '+names.length+'. Po kliknięciu „Pobierz” raport trafia do: klient \\ rok \\ numer miesiąca.';
+  $('folderBtn').textContent='Zmień folder';$('folderBtn').className='btn ghost';
+}
+function sig(out){return out.target+'|'+out.filename+'|'+out.blob.size+'|'+JSON.stringify(opts());}
+function assignTargets(){
+  outputs.forEach(function(out){
+    out.target=null;out.cands=[];out.fileErr=null;
+    if(!rootDir||!out.blob)return;
+    var f=out.infos[0];out.key=f.nip||f.client||out.filename;
+    var m=fmap[out.key];
+    if(m&&folderNames.indexOf(m)>=0){out.target=m;return;}
+    var c=f.client?matchFolder(f.client,folderNames):[];
+    if(c.length===1)out.target=c[0];else out.cands=c;
+  });
+}
+async function fileOut(out){
+  try{
+    var f=out.infos[0];if(!f.period)throw new Error('nie udało się ustalić miesiąca faktur');
+    var p=f.period.split('-'),d=await rootDir.getDirectoryHandle(out.target);
+    d=await d.getDirectoryHandle(p[0],{create:true});d=await d.getDirectoryHandle(p[1],{create:true});
+    var fh=await d.getFileHandle(out.filename,{create:true}),w=await fh.createWritable();
+    await w.write(out.blob);await w.close();
+    savedKeys[sig(out)]=1;out.fileErr=null;return true;
+  }catch(e){
+    out.fileErr=e&&e.name==='NoModificationAllowedError'?'plik jest otwarty w innym programie – zamknij go i spróbuj ponownie':(e&&e.name==='NotAllowedError'?'brak zgody na zapis w tym folderze':(e&&e.message)||String(e));
+    return false;
+  }
+}
+function folderUI(li,fi,out){
+  if(!rootDir||!out.blob)return;
+  var f=out.infos[0],p=(f.period||'').split('-');
+  if(out.target&&!out.pick){
+    var saved=savedKeys[sig(out)];
+    line(fi,out.fileErr?'err':saved?'ok':'',out.fileErr?'Nie zapisano w folderze: '+out.fileErr:(saved?'Zapisano w: ':'Folder: ')+rootDir.name+'\\'+out.target+(f.period?'\\'+p[0]+'\\'+p[1]:''));
+    return;
+  }
+  var m=document.createElement('div');m.className='meta warn';
+  m.textContent=out.pick?'Folder klienta: ':out.cands.length>1?'Pasuje kilka folderów, wybierz właściwy: ':'Nie rozpoznałem folderu klienta, wybierz go: ';
+  var sel=document.createElement('select');sel.className='pick';sel.id='pick-'+out.id;sel.setAttribute('aria-label','Folder klienta');
+  var o0=document.createElement('option');o0.value='';o0.textContent='Wybierz folder…';sel.appendChild(o0);
+  out.cands.concat(folderNames.filter(function(n){return out.cands.indexOf(n)<0;})).forEach(function(n){var o=document.createElement('option');o.value=n;o.textContent=n;sel.appendChild(o);});
+  sel.addEventListener('change',function(){
+    if(!sel.value)return;
+    out.target=sel.value;out.pick=false;fmap[out.key]=sel.value;
+    try{localStorage.setItem('fk-map',JSON.stringify(fmap));}catch(e){}
+    render();
+  });
+  m.appendChild(sel);fi.appendChild(m);
+}
+function line(parent,cls,text){var m=document.createElement('div');m.className='meta '+(cls||'');m.textContent=text;parent.appendChild(m);}
+function render(){
+  var ul=$('list');ul.textContent='';
+  if(!outputs.length&&!zips.length){var e=document.createElement('li');e.className='empty';
+    e.textContent='Tu pojawią się sformatowane pliki. Każdy zapiszesz osobno albo wszystkie razem w jednym ZIP-ie.';ul.appendChild(e);}
+  outputs.forEach(function(out){
+    var li=document.createElement('li'),fi=document.createElement('div');fi.className='fi';
+    li.id='out-'+out.id;if(out.ids.some(function(i){return newIds[i];}))li.className='new';
+    var fn=document.createElement('div');fn.className='fn';fn.textContent=out.filename;fi.appendChild(fn);
+    if(out.error)line(fi,'err','Nie udało się przetworzyć: '+out.error);
+    else{
+      // one box per dropped report, so purchase and sales details stay apart
+      var multi=out.infos.length>1,parts=document.createElement('div');parts.className='parts'+(multi?' multi':'');
+      if(multi)fi.className='fi wide';
+      out.infos.forEach(function(f,i){
+        var box=document.createElement('div');box.className='part';
+        if(multi){var tg=document.createElement('div');tg.className='tag';tg.textContent=f.kind==='zakup'?'Zakup':'Sprzedaż';box.appendChild(tg);}
+        var t=plural(f.count);
+        if(f.gross!=null&&f.currencies.length<=1)t+=' · brutto '+fmtMoney(f.gross)+(f.currencies[0]?' '+f.currencies[0]:'');
+        line(box,'',t);
+        var w=[],fl=f.flags;
+        if(fl.kor)w.push('korekty: '+fl.kor);if(fl.wal)w.push('waluta inna niż PLN: '+fl.wal);if(fl.date)w.push('data spoza miesiąca: '+fl.date);if(fl.dup)w.push('powtórzony numer: '+fl.dup);
+        if(f.badAmounts)w.push(f.badAmounts+' kwot zostało jako tekst');
+        if(f.sumSkipped&&f.currencies.length>1)w.push('bez wiersza „Razem” (waluty: '+f.currencies.join(', ')+')');
+        if(w.length)line(box,'warn','Do sprawdzenia – '+w.join(' · '));
+        out.zip.filter(function(z){return !multi||z.kind===f.kind;}).forEach(function(z){
+          var m=z.m,all=m.missing.length===0;
+          line(box,all?'ok':'err','ZIP '+z.name+': '+(all?'komplet, każda z '+m.matched+' faktur ma plik':'brakuje '+m.missing.length+' z '+(m.matched+m.missing.length)+' – '+m.missing.slice(0,8).join(', ')+(m.missing.length>8?' …':''))+(m.extra?' · '+m.extra+' plików spoza raportu':''));
+        });
+        if(multi||out.filename.replace(/\.xlsx$/,'')!==out.srcNames[0].replace(/\.(xlsx?|ods)$/i,''))line(box,'src','z pliku: '+out.srcNames[i]);
+        parts.appendChild(box);
+      });
+      fi.appendChild(parts);
+    }
+    if(!out.error)folderUI(li,fi,out);
+    li.appendChild(fi);
+    if(out.blob){
+      var acts=document.createElement('div');acts.className='acts';
+      var b=document.createElement('button');b.className='btn'+(rootDir&&savedKeys[sig(out)]?' ghost':'');b.id='save-'+out.id;b.textContent='Pobierz';
+      b.addEventListener('click',function(){getOut(out);});acts.appendChild(b);
+      if(rootDir&&out.target&&!out.pick){
+        var cb=document.createElement('button');cb.className='btn ghost';cb.id='chg-'+out.id;cb.textContent='Zmień folder';
+        cb.addEventListener('click',function(){out.pick=true;render();});acts.appendChild(cb);
+      }
+      var mb=document.createElement('button');mb.className='btn ghost';mb.id='mail-'+out.id;mb.textContent='Kopiuj treść maila';
+      mb.addEventListener('click',function(){copyMail(li,out);});acts.appendChild(mb);
+      li.appendChild(acts);
+    }
+    ul.appendChild(li);
+  });
+  zips.filter(function(z){return !z.paired;}).forEach(function(z){
+    var li=document.createElement('li'),fi=document.createElement('div');fi.className='fi';
+    var fn=document.createElement('div');fn.className='fn';fn.textContent=z.name;fi.appendChild(fn);
+    line(fi,z.error?'err':'warn',z.error?'Nie udało się otworzyć ZIP-a: '+z.error:'ZIP: '+z.entries.length+' plików, żaden nie pasuje do wrzuconych raportów.');
+    li.appendChild(fi);ul.appendChild(li);
+  });
+  $('zipBtn').hidden=outputs.filter(function(i){return i.blob;}).length<2;
+  $('zipBtn').textContent=rootDir?'Pobierz wszystkie do folderów':'Pobierz wszystkie (ZIP)';$('clearBtn').hidden=!outputs.length&&!zips.length;
+}
+// "Pobierz": with the client folder connected the report is written there, otherwise it is a normal download.
+function outPath(out){var p=(out.infos[0].period||'').split('-');return rootDir.name+'\\'+out.target+'\\'+p[0]+'\\'+p[1];}
+async function getOut(out){
+  if(!rootDir){save(out.filename,out.blob);return;}
+  if(!out.target||out.pick){
+    toast('Najpierw wybierz folder klienta przy tym raporcie.',true);
+    var sel=document.getElementById('pick-'+out.id);if(sel)sel.focus();return;
+  }
+  var ok=await fileOut(out);render();
+  toast(ok?'Zapisano: '+outPath(out)+'\\'+out.filename:'Nie zapisano w folderze: '+out.fileErr,!ok);
+}
+function copyMail(li,out){
+  var text=mailText(out.infos);
+  var show=function(){var ta=li.querySelector('textarea');if(!ta){ta=document.createElement('textarea');ta.className='mail';ta.id='mailtext-'+out.id;ta.readOnly=true;li.appendChild(ta);}ta.value=text;ta.focus();ta.select();};
+  try{navigator.clipboard.writeText(text).then(function(){say('Treść maila skopiowana do schowka.');},function(){show();say('Zaznaczyłem treść – skopiuj ją Ctrl+C.');});}
+  catch(e){show();say('Zaznaczyłem treść – skopiuj ją Ctrl+C.');}
+}
+async function save(filename,blob){
+  say('');
+  if(downloads){
+    try{await downloads.save({filename:filename,data:blob});say('Zapisano: '+filename);}
+    catch(e){say(e&&e.code==='declined'?'Zapis anulowany.':e&&e.code==='rate_limited'?'Poczekaj chwilę i spróbuj ponownie.':'Nie udało się zapisać pliku ('+((e&&e.code)||'błąd')+').');}
+    return;
+  }
+  try{var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=filename;document.body.appendChild(a);a.click();a.remove();
+    setTimeout(function(){URL.revokeObjectURL(a.href);},5000);}
+  catch(e){say('Zapisywanie plików nie jest dostępne w tym widoku.');}
+}
+var seq=0,newIds={},toastTimer=null;
+function toast(text,bad){
+  var t=$('toast');t.textContent=text;t.className='toast'+(bad?' bad':'');t.hidden=false;
+  clearTimeout(toastTimer);toastTimer=setTimeout(function(){t.hidden=true;},8000);
+}
+// Tell the user how the drop went and bring the new rows (with their save buttons) into view.
+function notify(nZips){
+  var mine=outputs.filter(function(o){return o.ids.some(function(i){return newIds[i];});});
+  var ok=mine.filter(function(o){return o.blob;}),bad=mine.filter(function(o){return !o.blob;}),t;
+  var saved=rootDir?ok.filter(function(o){return o.target&&savedKeys[sig(o)];}).length:0;
+  var need=rootDir?ok.filter(function(o){return !o.target;}).length:0;
+  if(!mine.length)t=nZips?'ZIP wrzucony poprawnie. Wynik sprawdzenia jest przy raporcie.':'Nie wrzucono żadnego pliku.';
+  else if(!ok.length)t='Nie udało się przetworzyć: '+bad.map(function(o){return o.srcNames[0];}).join(', ')+'.';
+  else{
+    t='Pliki wrzucone poprawnie. Gotowe raporty: '+ok.length+'.';
+    if(need)t+=' Wybierz folder klienta przy '+(need===1?'raporcie':need+' raportach')+' poniżej.';
+    else t+=rootDir?' Kliknij „Pobierz”, żeby zapisać je w folderach klientów.':' Kliknij „Pobierz”, żeby je zapisać.';
+    if(bad.length)t+=' Nie udało się przetworzyć: '+bad.length+'.';
+  }
+  toast(t,mine.length>0&&!ok.length);
+  var el=(mine.length&&document.getElementById('out-'+mine[0].id))||$('list');
+  var calm=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  try{el.scrollIntoView({behavior:calm?'auto':'smooth',block:mine.length>1?'start':'center'});}catch(e){el.scrollIntoView();}
+  var btn=el.querySelector&&el.querySelector('select,button');
+  if(btn)try{btn.focus({preventScroll:true});}catch(e){}
+}
+async function addFiles(list){
+  var files=Array.prototype.slice.call(list);
+  if(!files.length)return;
+  say('Przetwarzam…');
+  var firstNew=sources.length,nz=0;
+  for(var i=0;i<files.length;i++){
+    var f=files[i];
+    if(/\.zip$/i.test(f.name)){
+      var z={name:f.name,entries:[],error:null};
+      try{z.entries=await readZip(await f.arrayBuffer());}catch(e){z.error=e.message||String(e);}
+      zips.push(z);nz++;continue;
+    }
+    var s={id:++seq,name:f.name,table:null,error:null};
+    if(!/\.(xlsx?|ods)$/i.test(f.name))s.error='to nie jest plik .xls, .xlsx, .ods ani .zip';
+    else{
+      try{s.table=readTable(await f.arrayBuffer());
+        var hint=f.name+' '+s.table.name;s.table.kind=/zakup/i.test(hint)?'zakup':/sprzeda/i.test(hint)?'sprzedaż':null;}
+      catch(e){s.error=e.message||String(e);}
+    }
+    sources.push(s);
+  }
+  newIds={};sources.slice(firstNew).forEach(function(s){newIds[s.id]=1;});
+  await rebuild();say('');
+  notify(nz);
+}
+
+var drop=$('drop'),file=$('file');
+drop.addEventListener('click',function(){file.click();});
+drop.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();file.click();}});
+file.addEventListener('change',function(){addFiles(file.files);file.value='';});
+['dragenter','dragover'].forEach(function(n){drop.addEventListener(n,function(e){e.preventDefault();drop.classList.add('over');});});
+['dragleave','drop'].forEach(function(n){drop.addEventListener(n,function(e){e.preventDefault();drop.classList.remove('over');});});
+drop.addEventListener('drop',function(e){if(e.dataTransfer)addFiles(e.dataTransfer.files);});
+window.addEventListener('dragover',function(e){e.preventDefault();});
+window.addEventListener('drop',function(e){e.preventDefault();});
+Object.keys(OPT).forEach(function(id){
+  try{var v=localStorage.getItem('fk-'+id);if(v!=null)$(id).checked=v==='1';}catch(e){}
+  $(id).addEventListener('change',function(){try{localStorage.setItem('fk-'+id,$(id).checked?'1':'0');}catch(e){}rebuild();});
+});
+$('folderBtn').addEventListener('click',async function(){
+  if(!window.showDirectoryPicker){$('folderState').textContent='Ta przeglądarka nie zapisuje do folderów. Otwórz aplikację w Chrome albo Edge na komputerze.';return;}
+  try{
+    var h;
+    if(pendingDir&&!rootDir){if(await pendingDir.requestPermission({mode:'readwrite'})!=='granted')return;h=pendingDir;}
+    else h=await window.showDirectoryPicker({mode:'readwrite'});
+    await useRoot(h);try{await idb('readwrite',function(st){return st.put(h,'root');});}catch(e){}
+    assignTargets();render();
+  }catch(e){
+    if(e&&e.name==='AbortError')return;
+    $('folderState').textContent='W tym widoku przeglądarka nie pozwala zapisywać do folderów. Otwórz aplikację z pliku „Formater raportów KSeF.html” w Chrome albo Edge.';
+  }
+});
+(async function(){
+  if(!window.showDirectoryPicker)return;
+  try{
+    var h=await idb('readonly',function(st){return st.get('root');});if(!h)return;
+    if(await h.queryPermission({mode:'readwrite'})==='granted'){await useRoot(h);assignTargets();render();}
+    else{pendingDir=h;$('folderBtn').textContent='Połącz ponownie z folderem '+h.name;}
+  }catch(e){}
+})();
+$('clearBtn').addEventListener('click',function(){sources=[];zips=[];outputs=[];say('');render();});
+$('zipBtn').addEventListener('click',async function(){
+  if(rootDir){
+    var n=0,skip=0,bad=0;
+    for(var i=0;i<outputs.length;i++){var o=outputs[i];if(!o.blob)continue;
+      if(!o.target||o.pick){skip++;continue;}
+      if(await fileOut(o))n++;else bad++;}
+    render();
+    toast('Zapisano w folderach klientów: '+n+'.'+(skip?' Bez wybranego folderu: '+skip+'.':'')+(bad?' Nie udało się zapisać: '+bad+'.':''),bad>0||(n===0&&skip>0));
+    return;
+  }
+  var zip=new JSZip();outputs.forEach(function(o){if(o.blob)zip.file(o.filename,o.blob);});
+  var d=new Date(),stamp=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  save('Raporty_KSeF_'+stamp+'.zip',await zip.generateAsync({type:'blob'}));
+});
+</script>
+
+</body></html>
