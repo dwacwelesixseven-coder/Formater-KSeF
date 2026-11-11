@@ -7,6 +7,7 @@ on:
       - public/**
       - scripts/validate-site.mjs
       - scripts/test-downloads.mjs
+      - scripts/test-currency-totals.mjs
       - scripts/cloudflare-project.mjs
       - .github/workflows/deploy-cloudflare.yml
   workflow_dispatch:
@@ -33,6 +34,9 @@ jobs:
 
       - name: Check download results and error handling
         run: node scripts/test-downloads.mjs
+
+      - name: Check per-currency totals and summary
+        run: node scripts/test-currency-totals.mjs
 
       - name: Check Cloudflare connection
         id: connection

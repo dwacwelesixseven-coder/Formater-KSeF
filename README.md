@@ -31,6 +31,10 @@ Aplikacja wczytuje raporty KSeF i przetwarza je w przeglądarce. Korzysta z bibl
 
 ## Dalsze zmiany
 
+Opcja **Wiersze „Razem” pod tabelą** tworzy osobny wiersz dla każdej waluty, np. „Razem EUR” i „Razem PLN”. Formuły SUMIF i zapisane wyniki uwzględniają tylko faktury w danej walucie. Arkusz **Podsumowanie** zawiera osobne wiersze zakupu i sprzedaży dla każdej waluty, z liczbą faktur oraz kwotami netto, VAT i brutto. Brak waluty stanowi osobną grupę; nie zakłada się PLN. Kody walut są normalizowane do wielkich liter. Kwoty różnych walut nie są łączone ani przeliczane.
+
+Sprawdzenie sum, formuł i podsumowania: `node scripts/test-currency-totals.mjs`.
+
 Przycisk **Pobierz wszystkie dokumenty** zapisuje raporty kolejno do wskazanych folderów klientów albo, bez połączenia z folderem, do jednego archiwum ZIP. Przy każdym raporcie pojawia się stan zapisywania, zielony ptaszek po zakończonym zapisie lub czerwony krzyżyk z przyczyną błędu. Nieudana próba nie zatrzymuje pozostałych raportów. Brak wybranego folderu również jest oznaczany jako nieudana próba. W trakcie zapisu zmiana listy i ponowne uruchomienie pobierania są zablokowane.
 
 W przeglądarkach obsługujących wybór pliku wynik potwierdzany jest dopiero po zamknięciu zapisu. Przy zwykłym pobieraniu przez przeglądarkę strona nie może potwierdzić końca pobierania: zamiast zielonego ptaszka pokazuje neutralny komunikat „Przekazano przeglądarce”. ZIP-y z fakturami nadal służą do sprawdzania kompletności raportów; przycisk zapisuje wygenerowane raporty XLSX.

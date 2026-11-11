@@ -107,7 +107,7 @@ h2{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;
       <label><input type="checkbox" id="optCombine" checked><span>Zakup i sprzedaż klienta w jednym pliku<small>Dwa arkusze i podsumowanie, gdy wrzucisz oba raporty tego samego klienta.</small></span></label>
       <label><input type="checkbox" id="optNum" checked><span>Kwoty jako liczby (380 → 380,00)<small>Klient może je sumować w Excelu.</small></span></label>
       <label><input type="checkbox" id="optBorder" checked><span>Obramowanie i szare nagłówki</span></label>
-      <label><input type="checkbox" id="optSum"><span>Wiersz „Razem” pod tabelą<small>Pomijany, gdy w pliku są różne waluty.</small></span></label>
+      <label><input type="checkbox" id="optSum"><span>Wiersze „Razem” pod tabelą<small>Osobna suma dla każdej waluty.</small></span></label>
     </div>
   </section>
 
@@ -248,7 +248,8 @@ function prepare(table,opts){
     });
   }
   var invoices=body.map(function(r){return {nr:iNr>=0&&r[iNr]?String(r[iNr].v).trim():'',ksef:iKsef>=0&&r[iKsef]?String(r[iKsef].v).trim():''};});
-  var curList=Object.keys(col(iWal).reduce(function(m,v){if(v!=null)m[String(v).trim()]=1;return m;},{}));
+  // Use the same currency keys in displayed cells, cached totals and Excel formulas.
+  if(iWal>=0)body.forEach(function(r){if(r[iWal])r[iWal]={k:'s',v:String(r[iWal].v).trim().toUpperCase()};});
   // client columns move to the title block
   var titled=!!opts.header,dropped=false;
   if(titled&&cliNip!=null&&ci>=0&&cni>=0){
@@ -259,16 +260,26 @@ function prepare(table,opts){
   head.unshift('LP');specs.unshift(colSpec('LP',[]));body.forEach(function(r,i){r.unshift({k:'n',v:i+1});});
   if(opts.notes){head.push('Uwagi');specs.push(colSpec('Uwagi',[]));body.forEach(function(r){r.push(null);});}
   var amountIdx=[];specs.forEach(function(s,i){if(s.amount)amountIdx.push(i);});
-  var totals={};amountIdx.forEach(function(i){var t=0;body.forEach(function(r){if(r[i]&&r[i].k==='a')t+=r[i].v;});totals[i]=Math.round(t*100)/100;});
-  var named=function(re){var i=amountIdx.find(function(x){return re.test(head[x].toLowerCase());});return i==null?null:totals[i];};
-  var sumRow=!!(opts.sum&&opts.numbers&&amountIdx.length&&amountIdx[0]>0&&curList.length<=1&&body.length);
+  var currencyIdx=head.findIndex(function(h){return /^waluta/i.test(h);}),groups=new Map();
+  body.forEach(function(r){
+    var currency=currencyIdx>=0&&r[currencyIdx]?r[currencyIdx].v:'',g=groups.get(currency);
+    if(!g){g={currency:currency,count:0,totals:{}};amountIdx.forEach(function(i){g.totals[i]=0;});groups.set(currency,g);}
+    g.count++;amountIdx.forEach(function(i){if(r[i]&&r[i].k==='a')g.totals[i]+=r[i].v;});
+  });
+  var currencyGroups=Array.from(groups.values()).sort(function(a,b){return a.currency.localeCompare(b.currency);});
+  currencyGroups.forEach(function(g){amountIdx.forEach(function(i){g.totals[i]=Math.round(g.totals[i]*100)/100;});});
+  var curList=currencyGroups.map(function(g){return g.currency;});
+  var named=function(g,re){var i=amountIdx.find(function(x){return re.test(head[x].toLowerCase());});return !opts.numbers||i==null?null:g.totals[i];};
+  var currencyTotals=currencyGroups.map(function(g){return {currency:g.currency,count:g.count,net:named(g,/netto/),vat:named(g,/vat/),gross:named(g,/brutto/)};});
+  var single=currencyTotals.length===1?currencyTotals[0]:{};
+  var sumRow=!!(opts.sum&&opts.numbers&&amountIdx.length&&amountIdx[0]>0&&body.length);
   var kindLabel=kind==='zakup'?'Faktury zakupowe':kind==='sprzedaż'?'Faktury sprzedażowe':'Faktury';
-  return {head:head,body:body,specs:specs,n:head.length,amountIdx:amountIdx,totals:totals,sumRow:sumRow,
+  return {head:head,body:body,specs:specs,n:head.length,amountIdx:amountIdx,currencyIdx:currencyIdx,currencyGroups:currencyGroups,sumRow:sumRow,
     title:titled?kindLabel+(period?' – '+periodLabel(period):''):null,
     sub:titled&&cliName?niceName(cliName)+(cliNip?' · NIP '+cliNip:''):null,
     info:{count:body.length,kind:kind,client:cliName?niceName(cliName):null,nip:cliNip,period:period,currencies:curList,badAmounts:bad,
       sumSkipped:!!(opts.sum&&!sumRow),flags:flags,invoices:invoices,dropped:dropped,
-      net:named(/netto/),vat:named(/vat/),gross:named(/brutto/)}};
+      currencyTotals:currencyTotals,net:single.net==null?null:single.net,vat:single.vat==null?null:single.vat,gross:single.gross==null?null:single.gross}};
 }
 function Styles(){this.xfs=['<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'];this.map={};}
 Styles.prototype.get=function(num,font,fill,al,wrap,border){
@@ -328,10 +339,20 @@ function sheetXml(p,opts,S){
   });
   var last=rn;
   if(p.sumRow){
-    rn++;sd+='<row r="'+rn+'" ht="18.75" customHeight="1">';
-    sd+=cStr(colName(p.amountIdx[0]-1)+rn,S.get(0,2,0,'right',0,B),'Razem');
-    p.amountIdx.forEach(function(i){var c=colName(i);sd+='<c r="'+c+rn+'" s="'+S.get(164,2,0,'center',0,B)+'"><f>SUM('+c+(h0+1)+':'+c+last+')</f><v>'+p.totals[i]+'</v></c>';});
-    sd+='</row>';
+    p.currencyGroups.forEach(function(g){
+      var label='Razem'+(g.currency?' '+g.currency:p.currencyIdx>=0?' (brak waluty)':''),labelIdx=p.amountIdx[0]-1;
+      rn++;sd+='<row r="'+rn+'" ht="'+Math.max(18.75,textLines(label,p.specs[labelIdx].w,1)*12.75+6)+'" customHeight="1">';
+      sd+=cStr(colName(labelIdx)+rn,S.get(0,2,0,'right',1,B),label);
+      p.amountIdx.forEach(function(i){
+        var c=colName(i),formula='SUM('+c+(h0+1)+':'+c+last+')';
+        if(p.currencyIdx>=0){
+          var wc=colName(p.currencyIdx),criterion=g.currency.replace(/~/g,'~~').replace(/\*/g,'~*').replace(/\?/g,'~?').replace(/"/g,'""');
+          formula='SUMIF('+wc+(h0+1)+':'+wc+last+',"'+criterion+'",'+c+(h0+1)+':'+c+last+')';
+        }
+        sd+='<c r="'+c+rn+'" s="'+S.get(164,2,0,'center',0,B)+'"><f>'+esc(formula)+'</f><v>'+g.totals[i]+'</v></c>';
+      });
+      sd+='</row>';
+    });
   }
   var fl=p.info.flags,lg=[];
   if(fl.kor)lg.push('korekty ('+fl.kor+')');if(fl.wal)lg.push('waluta inna niż PLN ('+fl.wal+')');
@@ -347,17 +368,18 @@ function summaryXml(ps,opts,S){
   sd+='<row r="'+(++rn)+'" ht="7.5" customHeight="1"/>';
   var hs=S.get(0,1,B?2:0,'center',1,B);rn++;
   sd+='<row r="'+rn+'" ht="23" customHeight="1">';
-  ['','Liczba faktur','Netto','VAT','Brutto'].forEach(function(h,i){sd+=cStr(colName(i)+rn,hs,h);});sd+='</row>';
-  var mixed=false;
+  ['','Waluta','Liczba faktur','Netto','VAT','Brutto'].forEach(function(h,i){sd+=cStr(colName(i)+rn,hs,h);});sd+='</row>';
   ps.forEach(function(p){
-    var f=p.info;rn++;if(f.currencies.length>1)mixed=true;
-    sd+='<row r="'+rn+'" ht="18.75" customHeight="1">'+cStr('A'+rn,S.get(0,2,0,'left',0,B),f.kind==='zakup'?'Zakup':'Sprzedaż')+cNum('B'+rn,S.get(1,0,0,'center',0,B),f.count);
-    [f.net,f.vat,f.gross].forEach(function(v,i){var ref=colName(i+2)+rn;sd+=v==null?'<c r="'+ref+'" s="'+S.get(0,0,0,'center',0,B)+'"/>':cNum(ref,S.get(164,0,0,'center',0,B),v);});
-    sd+='</row>';
+    var f=p.info;
+    f.currencyTotals.forEach(function(g){
+      rn++;sd+='<row r="'+rn+'" ht="18.75" customHeight="1">'+cStr('A'+rn,S.get(0,2,0,'left',0,B),f.kind==='zakup'?'Zakup':'Sprzedaż')+
+        cStr('B'+rn,S.get(0,0,0,'center',0,B),g.currency||'Brak waluty')+cNum('C'+rn,S.get(1,0,0,'center',0,B),g.count);
+      [g.net,g.vat,g.gross].forEach(function(v,i){var ref=colName(i+3)+rn;sd+=v==null?'<c r="'+ref+'" s="'+S.get(0,0,0,'center',0,B)+'"/>':cNum(ref,S.get(164,0,0,'center',0,B),v);});
+      sd+='</row>';
+    });
   });
-  if(mixed){rn+=2;sd+='<row r="'+rn+'" ht="15" customHeight="1">'+cStr('A'+rn,S.get(0,4,0,'left',0,0),'Uwaga: faktury są w różnych walutach, sumy łączą kwoty bez przeliczenia.')+'</row>';}
-  var cols='<cols><col min="1" max="1" width="18" customWidth="1"/><col min="2" max="5" width="16" customWidth="1"/></cols>';
-  return {xml:wsXml(cols,sd,'E'+rn,0,true),titleRow:null};
+  var cols='<cols><col min="1" max="1" width="18" customWidth="1"/><col min="2" max="6" width="16" customWidth="1"/></cols>';
+  return {xml:wsXml(cols,sd,'F'+rn,0,true),titleRow:null};
 }
 function fileBase(infos,opts,fallback){
   var f=infos[0];
@@ -603,7 +625,6 @@ function render(){
         var w=[],fl=f.flags;
         if(fl.kor)w.push('korekty: '+fl.kor);if(fl.wal)w.push('waluta inna niż PLN: '+fl.wal);if(fl.date)w.push('data spoza miesiąca: '+fl.date);if(fl.dup)w.push('powtórzony numer: '+fl.dup);
         if(f.badAmounts)w.push(f.badAmounts+' kwot zostało jako tekst');
-        if(f.sumSkipped&&f.currencies.length>1)w.push('bez wiersza „Razem” (waluty: '+f.currencies.join(', ')+')');
         if(w.length)line(box,'warn','Do sprawdzenia – '+w.join(' · '));
         out.zip.filter(function(z){return !multi||z.kind===f.kind;}).forEach(function(z){
           var m=z.m,all=m.missing.length===0;
